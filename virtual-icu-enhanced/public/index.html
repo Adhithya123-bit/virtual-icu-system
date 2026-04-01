@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Virtual ICU — Video Visitation System</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="stylesheet" href="/css/call.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SERVER STATUS (bottom-left, always visible)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="srv-status">
+  <span id="srv-dot" class="srv-dot"></span>
+  <span id="srv-text">Connecting...</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 1 — LOGIN
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page active" id="login-page" style="align-items:center;justify-content:center;background:linear-gradient(135deg,#e0f4f4 0%,#f5f7fa 100%)">
+  <div style="background:var(--card);border-radius:24px;padding:2.5rem;width:90%;max-width:400px;box-shadow:0 20px 60px rgba(10,110,110,0.12)">
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto 1.2rem">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="white"><rect x="14" y="4" width="4" height="24" rx="2"/><rect x="4" y="14" width="24" height="4" rx="2"/></svg>
+    </div>
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.7rem;color:var(--primary);text-align:center;margin-bottom:0.3rem">Virtual ICU</h1>
+    <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:1.8rem">Secure Virtual Visitation System</p>
+
+    <!-- Proper form fixes Chrome password warning -->
+    <form id="login-form" onsubmit="event.preventDefault(); doLogin();" autocomplete="on">
+      <div class="form-group">
+        <label>Role</label>
+        <select id="role-select" onchange="fillCreds()">
+          <option value="admin">🏥 Hospital Admin</option>
+          <option value="nurse">👩‍⚕️ Nurse / Staff</option>
+          <option value="family">👨‍👩‍👧 Family Member</option>
+          <option value="patient">🛏️ Patient</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="login-email" name="email"
+               value="admin@hospital.com" placeholder="your@email.com"
+               autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" name="password"
+               value="admin123" placeholder="••••••••"
+               autocomplete="current-password"/>
+      </div>
+
+      <!-- Error message box (hidden by default) -->
+      <div id="login-error" style="display:none;background:#fde8e8;color:#991b1b;border-radius:8px;padding:10px 14px;font-size:0.82rem;margin-bottom:1rem;text-align:center;"></div>
+
+      <button type="submit" class="btn btn-primary btn-full">Sign In Securely 🔐</button>
+    </form>
+
+    
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 2 — ADMIN DASHBOARD
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="admin-page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="logo-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="11" y="4" width="2" height="16" rx="1"/><rect x="4" y="11" width="16" height="2" rx="1"/></svg></div>
+      <span>Virtual ICU</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip"><span class="online-dot"></span> 🏥 <span id="admin-uname">Admin</span></div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="content">
+    <div id="admin-stats" class="stats-row"></div>
+
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Patient Registry
+    </div>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr><th>Patient Name / Login</th><th>Bed</th><th>Ward</th><th>Condition</th><th>Assigned Nurse</th><th>Nurse Shift</th><th>Visit Access</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="patient-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Today's Schedule
+    </div>
+    <div class="schedule-grid" id="admin-schedule"></div>
+
+    <div class="section-title" style="margin-top:1.5rem">
+      👩‍⚕️ Nurse Assignments
+    </div>
+    <div id="nurse-assignments"></div>
+
+    <!-- SHIFT MANAGEMENT SECTION -->
+    <div class="section-title" style="margin-top:2rem">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Shift Management
+      <button onclick="openShiftManager()" style="margin-left:auto;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:0.78rem;cursor:pointer;font-weight:600;">Manage Shifts</button>
+    </div>
+    <div id="shift-overview"></div>
+
+  </div>
+</div>
+
+<!-- SHIFT MANAGER MODAL -->
+<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border-radius:16px;padding:2rem;width:min(680px,96vw);max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
+      <div>
+        <div style="font-size:1.15rem;font-weight:700;">Shift Manager</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Assign and manage nurse shifts in real-time</div>
+      </div>
+      <button onclick="closeShiftModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 12px;cursor:pointer;color:var(--text);">Close</button>
+    </div>
+
+    <!-- Demo Banner -->
+    <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:1rem;color:#fff;">
+      <div style="font-size:0.82rem;font-weight:700;margin-bottom:3px;">DEMO MODE - Watch live updates!</div>
+      <div style="font-size:0.75rem;opacity:0.9;">Change a nurse shift and watch their dashboard update instantly in real-time. No page refresh needed.</div>
+      <button onclick="runShiftDemo()" style="margin-top:8px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:4px 14px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">Run Auto Demo</button>
+    </div>
+
+    <!-- Quick Presets -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:6px;">Quick Presets</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="applyPreset('day')" style="background:#e0f4f4;color:#0a6e6e;border:none;border-radius:8px;padding:5px 14px;font-size:0.75rem;cursor:pointer;font-weight:600;">All Day Shifts</button>
+        <button onclick="applyPreset('night')" style="background:#ede9fe;color:#4c1d95;border:none;border-radius:8px;padding:5px 14px;font-size:0.75rem;cursor:pointer;font-weight:600;">All Night Shifts</button>
+        <button onclick="applyPreset('rotate')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:5px 14px;font-size:0.75rem;cursor:pointer;font-weight:600;">Rotate Shifts</button>
+        <button onclick="applyPreset('oncall')" style="background:#fee2e2;color:#991b1b;border:none;border-radius:8px;padding:5px 14px;font-size:0.75rem;cursor:pointer;font-weight:600;">On-Call Coverage</button>
+      </div>
+    </div>
+
+    <!-- Nurse Shift Table -->
+    <div id="shift-manager-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+    <div style="margin-top:1.2rem;display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="saveAllShifts()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:0.85rem;cursor:pointer;font-weight:600;">Save All Changes</button>
+      <button onclick="closeShiftModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;color:var(--text);">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3 — NURSE DASHBOARD
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="nurse-page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="logo-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="11" y="4" width="2" height="16" rx="1"/><rect x="4" y="11" width="16" height="2" rx="1"/></svg></div>
+      <span>Virtual ICU</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip"><span class="online-dot"></span> 👩‍⚕️ <span id="nurse-uname">Nurse</span></div>
+      <div style="display:flex;align-items:center;gap:6px;background:var(--primary-light);border-radius:20px;padding:4px 10px;">
+        <span style="font-size:0.72rem;color:var(--primary);font-weight:600;" id="nurse-shift-label">🌅 Morning</span>
+        <select id="nurse-shift-select" onchange="changeMyShift(this.value)"
+          style="font-size:0.72rem;border:none;background:transparent;color:var(--primary);
+                 font-weight:600;cursor:pointer;outline:none;padding:0;">
+          <option value="Morning">🌅 Morning</option>
+          <option value="Afternoon">🌤️ Afternoon</option>
+          <option value="Night">🌙 Night</option>
+          <option value="On-Call">📟 On-Call</option>
+          <option value="Day-Off">🏖️ Day-Off</option>
+        </select>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <!-- Nurse Tab Bar -->
+  <div style="background:var(--card);border-bottom:1px solid var(--border);padding:0 2rem;">
+    <div style="max-width:1400px;margin:0 auto;display:flex;gap:0;">
+      <button class="nurse-tab active" id="tab-monitor"   onclick="switchNurseTab('monitor')">🖥️ Patient Monitor</button>
+      <button class="nurse-tab"        id="tab-video"     onclick="switchNurseTab('video')">📹 Live Video Wall</button>
+      <button class="nurse-tab"        id="tab-requests"  onclick="switchNurseTab('requests')">⏳ Approvals</button>
+      <button class="nurse-tab"        id="tab-sessions"  onclick="switchNurseTab('sessions')">📋 Sessions</button>
+      <button class="nurse-tab"        id="tab-handover"  onclick="switchNurseTab('handover')">📝 Shift Handover</button>
+    </div>
+  </div>
+
+  <!-- TAB 1: PATIENT MONITOR (vitals) -->
+  <div class="content" id="nurse-tab-monitor">
+    <div id="nurse-stats" class="stats-row"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div class="section-title" style="margin:0">🖥️ Live Patient Monitor</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:0.75rem;color:var(--muted)" id="monitor-updated"></span>
+        <button class="btn btn-outline" style="padding:5px 14px;font-size:0.78rem" onclick="refreshMonitor()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="patient-monitor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:2rem;"></div>
+  </div>
+
+  <!-- TAB 2: LIVE VIDEO WALL -->
+  <div id="nurse-tab-video" style="display:none;flex-direction:column;flex:1;background:#0d1117;min-height:calc(100vh - 120px);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid #30363d;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:0.9rem;font-weight:600;color:#c9d1d9;">📹 ICU Video Wall</span>
+        <span style="font-size:0.72rem;color:#8b949e;background:#21262d;padding:3px 10px;border-radius:20px;">Nurse monitoring mode</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:0.72rem;color:#8b949e;" id="video-wall-status">Connecting to patient rooms...</span>
+        <button onclick="startVideoWall()" style="background:#0a6e6e;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:0.78rem;cursor:pointer;font-family:inherit;">▶ Connect All</button>
+        <button onclick="stopVideoWall()" style="background:#30363d;color:#c9d1d9;border:none;border-radius:8px;padding:6px 14px;font-size:0.78rem;cursor:pointer;font-family:inherit;">■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Patient video grid wall -->
+    <div id="video-wall-grid" style="
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:4px;
+      padding:4px;
+      flex:1;
+    "></div>
+  </div>
+
+  <!-- TAB 3: PENDING APPROVALS -->
+  <div class="content" id="nurse-tab-requests" style="display:none">
+    <div id="nurse-stats-req" class="stats-row" style="display:none"></div>
+    <div class="section-title">⏳ Pending Visit Approvals</div>
+    <div id="pending-list"></div>
+  </div>
+
+  <!-- TAB 4: SESSIONS -->
+  <div class="content" id="nurse-tab-sessions" style="display:none">
+    <div class="section-title">📋 Today's Sessions</div>
+    <div class="notice-card">
+      <div class="n-title">⚠️ Patient Safety Reminder</div>
+      <div class="n-body">Ensure patient is alert and vitals are stable before connecting any video visit.</div>
+    </div>
+    <div id="nurse-sessions"></div>
+  </div>
+
+  <!-- TAB 5: SHIFT HANDOVER NOTES -->
+  <div class="content" id="nurse-tab-handover" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
+      <div class="section-title" style="margin:0">📝 Shift Handover Notes</div>
+      <button class="btn btn-primary" style="padding:7px 18px;font-size:0.82rem" onclick="openHandoverForm()">
+        ＋ New Handover Note
+      </button>
+    </div>
+    <div id="handover-form-card" style="display:none;background:var(--card);border:1.5px solid var(--primary);border-radius:16px;padding:1.6rem;margin-bottom:1.5rem;">
+      <div style="font-size:1rem;font-weight:600;color:var(--primary);margin-bottom:1.2rem;">📝 Write Handover Note</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group"><label>Patient</label><select id="ho-patient"></select></div>
+        <div class="form-group"><label>Shift</label>
+          <select id="ho-shift">
+            <option value="Morning">🌅 Morning (7am–3pm)</option>
+            <option value="Afternoon">🌤️ Afternoon (3pm–11pm)</option>
+            <option value="Night">🌙 Night (11pm–7am)</option>
+            <option value="On-Call">📟 On-Call (24h available)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Priority Level</label>
+          <select id="ho-priority">
+            <option value="Routine">🟢 Routine</option>
+            <option value="Watch">🟡 Watch Closely</option>
+            <option value="Urgent">🔴 Urgent</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Condition Change</label>
+          <input type="text" id="ho-condition" placeholder="e.g. Stable, improved overnight"/>
+        </div>
+      </div>
+      <div class="form-group"><label>Last Recorded Vitals</label>
+        <input type="text" id="ho-vitals" placeholder="e.g. HR 82 bpm, BP 124/80, SpO2 97%, Temp 37.1°C"/>
+      </div>
+      <div class="form-group"><label>Medications Given / Due</label>
+        <textarea id="ho-meds" rows="2" placeholder="e.g. Paracetamol 500mg at 10pm. Ceftriaxone IV due at 6am."></textarea>
+      </div>
+      <div class="form-group"><label>Family Updates</label>
+        <textarea id="ho-family" rows="2" placeholder="e.g. Family visited at 3pm. Daughter asked about discharge."></textarea>
+      </div>
+      <div class="form-group"><label>Pending Tasks for Incoming Nurse</label>
+        <textarea id="ho-tasks" rows="2" placeholder="e.g. Wound dressing at 7am. Blood draw for CBC at 8am."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:0.5rem;">
+        <button class="btn btn-primary" onclick="submitHandover()">✅ Save Handover Note</button>
+        <button class="btn btn-outline" onclick="closeHandoverForm()">Cancel</button>
+      </div>
+    </div>
+    <div id="handover-feed"><div style="color:var(--muted);font-size:0.85rem;padding:1rem 0">Loading handover notes...</div></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3B — PATIENT ROOM VIEW
+     Patient logs in, camera activates, nurse can monitor live
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="patient-page" style="background:#0d1117;color:white;flex-direction:column;">
+  <div class="topbar" style="background:#161b22;border-color:#30363d;">
+    <div class="topbar-brand">
+      <div class="logo-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="11" y="4" width="2" height="16" rx="1"/><rect x="4" y="11" width="16" height="2" rx="1"/></svg></div>
+      <span style="color:#c9d1d9;">Virtual ICU</span>
+    </div>
+    <div class="topbar-right">
+      <span style="font-size:0.75rem;color:#8b949e;background:#21262d;padding:4px 12px;border-radius:20px;">
+        🛏️ Patient Room — Nurse monitoring active
+      </span>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:2rem;gap:1.5rem;max-width:900px;margin:0 auto;width:100%;">
+
+    <!-- Welcome -->
+    <div style="text-align:center;">
+      <div style="font-size:1.4rem;font-weight:700;color:#c9d1d9;margin-bottom:0.3rem">
+        Hello, <span id="patient-greet">Patient</span> 👋
+      </div>
+      <div style="font-size:0.85rem;color:#8b949e;">
+        Patient Room — You will be notified when family joins
+      </div>
+    </div>
+
+    <!-- Camera + Monitoring status -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:1rem 1.4rem;width:100%;display:flex;align-items:center;gap:12px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:#27ae60;animation:live-pulse 1.4s ease-in-out infinite;display:inline-block;flex-shrink:0;"></span>
+      <span style="font-size:0.85rem;color:#c9d1d9;">Your camera will activate automatically when a family call starts. A nurse has approved your visit slot.</span>
+    </div>
+
+    <!-- Two columns: camera + vitals -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;width:100%;">
+
+      <!-- Patient camera feed -->
+      <div style="background:#1c2128;border:1px solid #30363d;border-radius:14px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:0.82rem;font-weight:600;color:#c9d1d9;">📷 Room Camera</span>
+          <span id="patient-cam-status" style="font-size:0.72rem;color:#8b949e;">Starting...</span>
+        </div>
+        <div style="position:relative;aspect-ratio:4/3;background:#0d1117;display:flex;align-items:center;justify-content:center;">
+          <video id="patient-room-video" autoplay muted playsinline
+            style="width:100%;height:100%;object-fit:cover;"></video>
+          <div id="patient-cam-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;">
+            <div style="font-size:2rem;">📷</div>
+            <div style="font-size:0.8rem;color:#8b949e;">Activating camera...</div>
+          </div>
+        </div>
+        <div style="padding:8px 14px;font-size:0.72rem;color:#6b7280;text-align:center;">
+          🔒 Nurse monitoring — encrypted stream
+        </div>
+      </div>
+
+      <!-- Live Vitals Monitor -->
+      <div style="background:#1c2128;border:1px solid #30363d;border-radius:14px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:0.82rem;font-weight:600;color:#c9d1d9;">📊 Vitals Monitor</span>
+          <span style="font-size:0.72rem;color:#27ae60;display:flex;align-items:center;gap:4px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#27ae60;animation:live-pulse 1.4s ease-in-out infinite;display:inline-block;"></span>
+            LIVE
+          </span>
+        </div>
+        <!-- Canvas for ECG + vitals -->
+        <canvas id="patient-vitals-canvas" style="width:100%;display:block;"></canvas>
+      </div>
+    </div>
+
+    <!-- Scheduled visits -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:14px;padding:1.2rem;width:100%;">
+      <div style="font-size:0.85rem;font-weight:600;color:#c9d1d9;margin-bottom:0.8rem;">📅 Your scheduled visits</div>
+      <div id="patient-sessions" style="font-size:0.82rem;color:#8b949e;">Loading...</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 4 — FAMILY PORTAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="family-page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="logo-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="11" y="4" width="2" height="16" rx="1"/><rect x="4" y="11" width="16" height="2" rx="1"/></svg></div>
+      <span>Virtual ICU</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip"><span class="online-dot"></span> 👨‍👩‍👧 <span id="family-uname">Family</span></div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="content" style="max-width:860px">
+    <h1 style="font-size:1.4rem;font-weight:600;margin-bottom:0.3rem">Welcome, <span id="family-greet"></span> 👋</h1>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.8rem">Connect virtually with your loved one in the ICU</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+      <!-- Request Form -->
+      <div style="background:var(--card);border-radius:var(--radius-lg);border:1px solid var(--border);padding:1.8rem">
+        <h2 style="font-size:1.05rem;font-weight:600;color:var(--primary);margin-bottom:1.2rem">📅 Request a Visit</h2>
+        <div class="form-group">
+          <label>Patient</label>
+          <input type="text" id="fam-patient" readonly/>
+        </div>
+        <div class="form-group">
+          <label>Preferred Date</label>
+          <input type="date" id="fam-date"/>
+        </div>
+        <div class="form-group">
+          <label>Time Slot</label>
+          <select id="fam-time">
+            <option>09:00 AM – 09:20 AM</option>
+            <option>11:00 AM – 11:20 AM</option>
+            <option>02:00 PM – 02:20 PM</option>
+            <option>04:30 PM – 04:50 PM</option>
+            <option>06:00 PM – 06:20 PM</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Message to Nurse (optional)</label>
+          <textarea id="fam-note" rows="2" placeholder="Any special notes..."></textarea>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="submitVisitRequest()">Submit Visit Request</button>
+      </div>
+
+      <!-- Scheduled Visits + Guidelines -->
+      <div>
+        <div class="section-title">📋 Your Visits</div>
+        <div id="family-sessions"></div>
+        <div class="guidelines-box">
+          <div class="g-title">Visit Guidelines</div>
+          <div class="g-item"><span>✅</span><span>Each visit is limited to 20 minutes</span></div>
+          <div class="g-item"><span>✅</span><span>A nurse will be present throughout</span></div>
+          <div class="g-item"><span>✅</span><span>Video is end-to-end encrypted</span></div>
+          <div class="g-item"><span>✅</span><span>Only approved members may join</span></div>
+          <div class="g-item"><span>⚠️</span><span>Visits may cancel if condition changes</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 5 — VIDEO CALL
+     Dynamic grid — auto layouts for 2 or 3 participants
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="call-page">
+  <div class="topbar" style="background:#161b22;border-color:#30363d;">
+    <div class="topbar-brand">
+      <div class="logo-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="11" y="4" width="2" height="16" rx="1"/><rect x="4" y="11" width="16" height="2" rx="1"/></svg></div>
+      <span style="color:#c9d1d9">Virtual ICU — Secure Call</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="call-participants-count" style="font-size:0.72rem;color:#8b949e;background:#21262d;padding:3px 10px;border-radius:20px;">1 participant</span>
+      <span class="enc-badge">🔒 Encrypted</span>
+    </div>
+  </div>
+
+  <div class="call-inner">
+    <div class="video-area">
+
+      <!-- Dynamic video grid — JS fills this -->
+      <div id="video-grid" style="
+        flex:1;display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:6px;padding:8px;
+        background:#0d1117;
+        min-height:300px;
+      "></div>
+
+      <!-- Controls -->
+      <div class="call-controls" style="background:#161b22;border-top:1px solid #30363d;">
+        <button class="ctrl-btn" id="btn-mute" title="Mute" onclick="toggleMute()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" stroke-width="2" fill="none"/><line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2"/><line x1="8" y1="23" x2="16" y2="23" stroke="white" stroke-width="2"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btn-video" title="Camera" onclick="toggleCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        </button>
+        <span class="call-timer" id="call-timer">00:00</span>
+        <button class="ctrl-btn ctrl-end" title="End Call" onclick="endCall()">
+          <svg viewBox="0 0 24 24" fill="white" width="22" height="22"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.19 12a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 3.11 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><line x1="1" y1="1" x2="23" y2="23" stroke="white" stroke-width="2"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btn-screen" title="Share Screen" onclick="shareScreen()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </button>
+        <button class="ctrl-btn" title="Chat" onclick="document.getElementById('chat-inp').focus()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Sidebar -->
+    <div class="call-sidebar">
+      <div class="sidebar-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Session Chat
+      </div>
+      <div class="sidebar-body" id="chat-msgs"></div>
+      <div class="chat-input-row">
+        <input class="chat-inp" id="chat-inp" placeholder="Type message..."
+               onkeydown="if(event.key==='Enter') sendChatMsg()"/>
+        <button class="chat-send-btn" onclick="sendChatMsg()">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Review Request</h3>
+    <div id="modal-body"></div>
+    <div class="modal-row" id="modal-row">
+      <button class="btn btn-success" onclick="approveReq()">✅ Approve</button>
+      <button class="btn btn-danger" onclick="denyReq()">❌ Deny</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST NOTIFICATION
+     ═══════════════════════════════════════════════════════════ -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS (load order matters)
+     ═══════════════════════════════════════════════════════════ -->
+<script src="/socket.io/socket.io.js"></script>   <!-- Socket.IO client (auto-served by server) -->
+<script src="/js/api.js"></script>                 <!-- REST API helper -->
+<script src="/js/webrtc.js"></script>              <!-- WebRTC Manager class -->
+<script src="/js/app.js"></script>                 <!-- Main app logic -->
+
+</body>
+</html>
